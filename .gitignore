@@ -1,0 +1,29 @@
+# Python bytecode & environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Build & local binaries
+build/
+dist/
+*.spec
+*.exe
+
+# Cheat Engine backups & generated trainers
+*.ct.bak
+*.CT.BAK
+*.cetrainer
+
+# OS & Editor files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.tmp

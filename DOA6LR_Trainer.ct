@@ -1,0 +1,996 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CheatTable CheatEngineTableVersion="45">
+  <CheatEntries>
+    <CheatEntry>
+      <ID>1</ID>
+      <Description>"[DOA6LR Offline Trainer] Initialize / Rescan Symbols (Run First or Auto-Attached)"</Description>
+      <VariableType>Auto Assembler Script</VariableType>
+      <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+if not doa6lr_init() then
+  error("Failed to attach or locate DOA6LR.exe symbols. Make sure DOA6LR.exe is running!")
+end
+if not doa6lr_isOffline() then
+  error("Offline safety guard: Online Ranked / Lobby / Versus match detected! Cheats disabled.")
+end
+{$asm}
+[DISABLE]
+{$lua}
+if syntaxcheck then return end
+{$asm}
+</AssemblerScript>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>2</ID>
+      <Description>"=== Combat (Offline Single-Player Only) ==="</Description>
+      <Options moHideChildren="0"/>
+      <GroupHeader>1</GroupHeader>
+      <CheatEntries>
+        <CheatEntry>
+          <ID>3</ID>
+          <Description>"Infinite Health (P1)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_set_dmg_flag("p1_inf", true)
+{$asm}
+[DISABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_set_dmg_flag("p1_inf", false)
+{$asm}
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>4</ID>
+          <Description>"One-Hit K.O. (P2 / AI)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_set_dmg_flag("p2_ohko", true)
+{$asm}
+[DISABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_set_dmg_flag("p2_ohko", false)
+{$asm}
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>5</ID>
+          <Description>"Max / Infinite Break Gauge (P1)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_set_brk_flag("p1_max", true)
+{$asm}
+[DISABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_set_brk_flag("p1_max", false)
+{$asm}
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>6</ID>
+          <Description>"Empty Opponent Break Gauge (P2 / AI)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_set_brk_flag("p2_empty", true)
+{$asm}
+[DISABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_set_brk_flag("p2_empty", false)
+{$asm}
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>7</ID>
+          <Description>"Instant Refill Break Gauge (P1 One-Shot)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_refill_p1_break()
+{$asm}
+[DISABLE]
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>9</ID>
+          <Description>"Instant Heal P1 Full HP (One-Shot)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_refill_p1_health()
+{$asm}
+[DISABLE]
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>8</ID>
+          <Description>"Freeze Match Timer"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_assert_offline()
+{$asm}
+aobscanmodule(INJ_TIMER1,DOA6LR.exe,F3 0F 5E C1 F3 0F 59 41 14 F3 0F 58 45 08 ?? ?? ?? ?? ?? 0F B6 87 20 02)
+aobscanmodule(INJ_TIMER2,DOA6LR.exe,F3 0F 5E C1 F3 0F 59 41 14 F3 0F 58 46 08 ?? ?? ?? ?? ?? 0F B6 87 20 02)
+registersymbol(INJ_TIMER1)
+registersymbol(INJ_TIMER2)
+
+INJ_TIMER1+0E:
+  db 90 90 90 90 90
+
+INJ_TIMER2+0E:
+  db 90 90 90 90 90
+
+[DISABLE]
+INJ_TIMER1+0E:
+  db F3 0F 11 45 08
+
+INJ_TIMER2+0E:
+  db F3 0F 11 46 08
+
+unregistersymbol(INJ_TIMER1)
+unregistersymbol(INJ_TIMER2)
+</AssemblerScript>
+        </CheatEntry>
+      </CheatEntries>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>10</ID>
+      <Description>"=== Modes, Challenges &amp; Score ==="</Description>
+      <Options moHideChildren="0"/>
+      <GroupHeader>1</GroupHeader>
+      <CheatEntries>
+        <CheatEntry>
+          <ID>11</ID>
+          <Description>"Always Clear Challenges"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_assert_offline()
+{$asm}
+aobscanmodule(INJ_CHAL1,DOA6LR.exe,24 01 00 00 ?? ?? ?? EB 4F 83 F9 01 75 37 44 88 7C 24)
+aobscanmodule(INJ_CHAL2,DOA6LR.exe,24 01 00 00 ?? ?? ?? EB 02 32 C0 4C 8D 5C 24 60 49 8B)
+registersymbol(INJ_CHAL1)
+registersymbol(INJ_CHAL2)
+
+INJ_CHAL1+04:
+  db B0 01 90
+
+INJ_CHAL2+04:
+  db B0 01 90
+
+[DISABLE]
+INJ_CHAL1+04:
+  db 0F 9D C0
+
+INJ_CHAL2+04:
+  db 0F 9D C0
+
+unregistersymbol(INJ_CHAL1)
+unregistersymbol(INJ_CHAL2)
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>51</ID>
+          <Description>"Quest Mode: Always 3 Stars"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_assert_offline()
+{$asm}
+aobscanmodule(INJ_QUESTWIN,DOA6LR.exe,0F B6 4E 58 48 8B 45 48 ?? ?? ?? ?? ?? ?? 44 8B 46 38 48 8B 4D F0)
+aobscanmodule(INJ_QUESTSTARS,DOA6LR.exe,88 5D 50 48 8B 0F 48 8B 01 48 8B 50 28 49 3B D4 0F 85 ?? ?? ?? ?? 0F B6 81 ?? 01 00 00 88 45 51)
+registersymbol(INJ_QUESTWIN)
+registersymbol(INJ_QUESTSTARS)
+
+INJ_QUESTWIN+08:
+  db C6 45 D8 01 90 90
+
+INJ_QUESTSTARS+16:
+  db 0F B6 81 28 01 00 00
+
+[DISABLE]
+INJ_QUESTWIN+08:
+  db 38 08 0F 94 45 D8
+
+INJ_QUESTSTARS+16:
+  db 0F B6 81 24 01 00 00
+
+unregistersymbol(INJ_QUESTWIN)
+unregistersymbol(INJ_QUESTSTARS)
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>12</ID>
+          <Description>"Max Arcade / Survival Score (Hook)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_assert_offline()
+{$asm}
+aobscanmodule(INJ_SCOREMUL,DOA6LR.exe,?? ?? ?? ?? ?? ?? ?? ?? 48 C7 83 60 01 00 00 00 00 00 00 48 01 83 68 01 00 00 48 83)
+alloc(newmem_score,256,INJ_SCOREMUL)
+globalalloc(DOA6LR_ScoreTaskPtr,8,DOA6LR.exe)
+globalalloc(DOA6LR_ScoreMultVal,4,DOA6LR.exe)
+globalalloc(DOA6LR_ScoreMaxMode,4,DOA6LR.exe)
+label(return_score)
+
+DOA6LR_ScoreMultVal:
+  dd 0A
+
+DOA6LR_ScoreMaxMode:
+  dd 01
+
+newmem_score:
+  mov [DOA6LR_ScoreTaskPtr], rbx
+  imul rax, [rbx+160]
+  push rcx
+  mov ecx, [DOA6LR_ScoreMultVal]
+  cmp ecx, 01
+  jle short score_chk_max
+  movsxd rcx, ecx
+  imul rax, rcx
+score_chk_max:
+  cmp dword ptr [DOA6LR_ScoreMaxMode], 00
+  je short score_done
+  mov eax, 05F5E0FF
+score_done:
+  pop rcx
+  jmp return_score
+
+INJ_SCOREMUL:
+  jmp newmem_score
+  nop 3
+return_score:
+registersymbol(INJ_SCOREMUL)
+
+[DISABLE]
+INJ_SCOREMUL:
+  db 48 0F AF 83 60 01 00 00
+
+unregistersymbol(INJ_SCOREMUL)
+dealloc(newmem_score)
+</AssemblerScript>
+          <CheatEntries>
+            <CheatEntry>
+              <ID>13</ID>
+              <Description>"Score Mode (1 = Force 99,999,999 | 0 = Use Multiplier)"</Description>
+              <VariableType>4 Bytes</VariableType>
+              <Address>DOA6LR_ScoreMaxMode</Address>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>14</ID>
+              <Description>"Score Multiplier (when Score Mode = 0)"</Description>
+              <VariableType>4 Bytes</VariableType>
+              <Address>DOA6LR_ScoreMultVal</Address>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>15</ID>
+              <Description>"Live Course Score (Captured on Score Update)"</Description>
+              <VariableType>8 Bytes</VariableType>
+              <Address>[DOA6LR_ScoreTaskPtr]+168</Address>
+            </CheatEntry>
+          </CheatEntries>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>16</ID>
+          <Description>"Game Speed Hook (TimeScale)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_assert_offline()
+{$asm}
+aobscanmodule(INJ_TIMESCALE,DOA6LR.exe,?? ?? ?? ?? ?? ?? ?? ?? F3 48 0F 2A C0 F3 0F 5E C8 F3 0F 58 8B 70 01 00 00)
+alloc(newmem_speed,128,INJ_TIMESCALE)
+globalalloc(DOA6LR_TimeScaleVal,4,DOA6LR.exe)
+label(return_speed)
+
+DOA6LR_TimeScaleVal:
+  dd (float)1.5
+
+newmem_speed:
+  mov eax, [rcx+10]
+  movss xmm1, [rcx+14]
+  mulss xmm1, [DOA6LR_TimeScaleVal]
+  jmp return_speed
+
+INJ_TIMESCALE:
+  jmp newmem_speed
+  nop 3
+return_speed:
+registersymbol(INJ_TIMESCALE)
+
+[DISABLE]
+INJ_TIMESCALE:
+  db 8B 41 10 F3 0F 10 49 14
+
+unregistersymbol(INJ_TIMESCALE)
+dealloc(newmem_speed)
+</AssemblerScript>
+          <CheatEntries>
+            <CheatEntry>
+              <ID>17</ID>
+              <Description>"Speed Multiplier (0.4 = Slow Motion, 1.0 = Normal, 2.0 = 2x)"</Description>
+              <VariableType>Float</VariableType>
+              <Address>DOA6LR_TimeScaleVal</Address>
+            </CheatEntry>
+          </CheatEntries>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>18</ID>
+          <Description>"CE Native Speedhack 2.0x (Alternative)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_assert_offline()
+speedhack_setSpeed(2.0)
+{$asm}
+[DISABLE]
+{$lua}
+if syntaxcheck then return end
+speedhack_setSpeed(1.0)
+{$asm}
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>19</ID>
+          <Description>"CE Native Slow Motion 0.4x (Alternative)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_assert_offline()
+speedhack_setSpeed(0.4)
+{$asm}
+[DISABLE]
+{$lua}
+if syntaxcheck then return end
+speedhack_setSpeed(1.0)
+{$asm}
+</AssemblerScript>
+        </CheatEntry>
+      </CheatEntries>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>20</ID>
+      <Description>"=== Player Profile, Money, EXP &amp; Character Points ==="</Description>
+      <Options moHideChildren="0"/>
+      <GroupHeader>1</GroupHeader>
+      <CheatEntries>
+        <CheatEntry>
+          <ID>21</ID>
+          <Description>"Player Points / In-Game Money"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>[DOA6LR_OwnerPtr]+0</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>22</ID>
+          <Description>"Owner EXP / Grade Points"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>[DOA6LR_OwnerPtr]+8</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>23</ID>
+          <Description>"Match Reward Money (Pending)"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>[DOA6LR_RewardPtr]+10</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>24</ID>
+          <Description>"Match Reward Owner EXP (Pending)"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>[DOA6LR_RewardPtr]+18</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>25</ID>
+          <Description>"Option: Match Max Health Setting"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>[DOA6LR_OwnerPtr]+17EF8</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>26</ID>
+          <Description>"Option: Match Time Limit Setting"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>[DOA6LR_OwnerPtr]+17EFC</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>27</ID>
+          <Description>"Frame Speed (Global Engine Scale)"</Description>
+          <VariableType>Float</VariableType>
+          <Address>[DOA6LR_ScoreGlobalPtr]+560</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>28</ID>
+          <Description>"Set Max Money &amp; EXP (One-Shot)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_init()
+doa6lr_assert_offline()
+local owner = readQword("DOA6LR_OwnerPtr")
+if owner and owner ~= 0 then
+  writeInteger(owner + 0x0, 999999999)
+  writeInteger(owner + 0x8, 99999999)
+end
+{$asm}
+[DISABLE]
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>29</ID>
+          <Description>"Set All Character Points = 999,999 (Slots 0..34, One-Shot)"</Description>
+          <VariableType>Auto Assembler Script</VariableType>
+          <AssemblerScript>[ENABLE]
+{$lua}
+if syntaxcheck then return end
+doa6lr_init()
+doa6lr_assert_offline()
+local sd = readQword("DOA6LR_SaveDataPtr")
+if sd and sd ~= 0 then
+  for i = 0, 34 do
+    writeInteger(sd + 0x5EDC + i * 4, 999999)
+  end
+end
+{$asm}
+[DISABLE]
+</AssemblerScript>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>30</ID>
+          <Description>"Character Points Slots (SaveData + 0x5EDC)"</Description>
+          <Options moHideChildren="1"/>
+          <GroupHeader>1</GroupHeader>
+          <CheatEntries>
+            <CheatEntry>
+              <ID>31</ID>
+              <Description>"Character Slot 0 Points"</Description>
+              <VariableType>4 Bytes</VariableType>
+              <Address>[DOA6LR_SaveDataPtr]+5EDC</Address>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>32</ID>
+              <Description>"Character Slot 1 Points"</Description>
+              <VariableType>4 Bytes</VariableType>
+              <Address>[DOA6LR_SaveDataPtr]+5EE0</Address>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>33</ID>
+              <Description>"Character Slot 2 Points"</Description>
+              <VariableType>4 Bytes</VariableType>
+              <Address>[DOA6LR_SaveDataPtr]+5EE4</Address>
+            </CheatEntry>
+            <CheatEntry>
+              <ID>34</ID>
+              <Description>"Character Slot 3 Points"</Description>
+              <VariableType>4 Bytes</VariableType>
+              <Address>[DOA6LR_SaveDataPtr]+5EE8</Address>
+            </CheatEntry>
+          </CheatEntries>
+        </CheatEntry>
+      </CheatEntries>
+    </CheatEntry>
+    <CheatEntry>
+      <ID>40</ID>
+      <Description>"=== Live Fighter Telemetry (P1 / P2) ==="</Description>
+      <Options moHideChildren="0"/>
+      <GroupHeader>1</GroupHeader>
+      <CheatEntries>
+        <CheatEntry>
+          <ID>41</ID>
+          <Description>"Online State Flag (255/5+ = Offline, 0..4 = Online)"</Description>
+          <VariableType>Byte</VariableType>
+          <Address>[DOA6LR_OnlineObjPtr]+8F8</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>42</ID>
+          <Description>"P1 Damage Taken (0 = Full HP)"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>DOA6LR_P1Fighter+1758</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>43</ID>
+          <Description>"P1 Max Health"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>DOA6LR_P1Fighter+1754</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>44</ID>
+          <Description>"P1 Break Gauge (Current u16)"</Description>
+          <VariableType>2 Bytes</VariableType>
+          <Address>DOA6LR_P1Fighter+580</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>45</ID>
+          <Description>"P1 Break Gauge (Max u16)"</Description>
+          <VariableType>2 Bytes</VariableType>
+          <Address>DOA6LR_P1Fighter+582</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>46</ID>
+          <Description>"P1 Damage Mode (Fighter + 0x1750, 0=Normal 2=Training)"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>DOA6LR_P1Fighter+1750</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>47</ID>
+          <Description>"P2 Damage Taken (== MaxHP is KO)"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>DOA6LR_P2Fighter+1758</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>48</ID>
+          <Description>"P2 Max Health"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>DOA6LR_P2Fighter+1754</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>49</ID>
+          <Description>"P2 Break Gauge (Current u16)"</Description>
+          <VariableType>2 Bytes</VariableType>
+          <Address>DOA6LR_P2Fighter+580</Address>
+        </CheatEntry>
+        <CheatEntry>
+          <ID>50</ID>
+          <Description>"P2 Damage Mode (Fighter + 0x1750, 0=Normal 2=Training)"</Description>
+          <VariableType>4 Bytes</VariableType>
+          <Address>DOA6LR_P2Fighter+1750</Address>
+        </CheatEntry>
+      </CheatEntries>
+    </CheatEntry>
+  </CheatEntries>
+  <UserdefinedSymbols/>
+  <LuaScript>-- DOA6 Last Round (DOA6LR.exe) Dynamic Symbol &amp; Offline Safety Script
+local TARGET_PROC = "DOA6LR.exe"
+local initialized = false
+local dmgState = { p1_inf = false, p2_ohko = false, hookInstalled = false }
+local brkState = { p1_max = false, p2_empty = false, hookInstalled = false }
+
+local function aob_first(pattern)
+  local res = AOBScanModule(TARGET_PROC, pattern)
+  if res and res.Count &gt; 0 then
+    local addr = getAddressSafe(res[0])
+    res.destroy()
+    return addr
+  end
+  if res then res.destroy() end
+  return nil
+end
+
+local function rip_target(inst_addr, op_len)
+  if not inst_addr then return nil end
+  local disp = readInteger(inst_addr + op_len, true)
+  if not disp then return nil end
+  return inst_addr + op_len + 4 + disp
+end
+
+function doa6lr_isOffline()
+  local online_ptr_sym = getAddressSafe("DOA6LR_OnlineObjPtr")
+  if not online_ptr_sym or online_ptr_sym == 0 then return true end
+  local obj = readQword(online_ptr_sym)
+  if not obj or obj == 0 then return true end
+  local flag = readBytes(obj + 0x8F8, 1, false)
+  if not flag then return true end
+  return flag &gt;= 5
+end
+
+function doa6lr_assert_offline()
+  doa6lr_init()
+  if not doa6lr_isOffline() then
+    error("Offline safety guard: Online mode detected (flag &lt; 5). Cheats are blocked online.")
+  end
+end
+
+function doa6lr_update_fighters()
+  local fmap_sym = getAddressSafe("DOA6LR_FighterMapPtr")
+  if not fmap_sym or fmap_sym == 0 then return end
+  local fmap = readQword(fmap_sym)
+  if not fmap or fmap == 0 then return end
+  local head = readQword(fmap)
+  if not head or head == 0 then return end
+
+  local function read_node(node_ptr, expected_key)
+    if not node_ptr or node_ptr == 0 then return 0 end
+    local is_nil = readBytes(node_ptr + 0x19, 1, false)
+    if is_nil ~= 0 then return 0 end
+    local key = readBytes(node_ptr + 0x20, 1, false)
+    if key ~= expected_key then return 0 end
+    local slot = readQword(node_ptr + 0x28)
+    if not slot or slot == 0 then return 0 end
+    local f = readQword(slot + 0x88)
+    return f or 0
+  end
+
+  local p1 = read_node(readQword(head + 0x00), 0)
+  local p2 = read_node(readQword(head + 0x10), 1)
+  unregisterSymbol("DOA6LR_P1Fighter")
+  unregisterSymbol("DOA6LR_P2Fighter")
+  if p1 ~= 0 then registerSymbol("DOA6LR_P1Fighter", p1) end
+  if p2 ~= 0 then registerSymbol("DOA6LR_P2Fighter", p2) end
+end
+
+function doa6lr_init()
+  if getOpenedProcessID() == 0 then
+    local pid = getProcessIDFromProcessName(TARGET_PROC)
+    if not pid or pid == 0 then return false end
+    openProcess(pid)
+  end
+
+  if initialized and getAddressSafe("DOA6LR_FighterMapPtr") then
+    doa6lr_update_fighters()
+    return true
+  end
+
+  local owner_aob = aob_first("48 8B 05 ?? ?? ?? ?? 48 83 C4 38 C3 48 8D 0D 30")
+  local reward_aob = aob_first("48 8B 05 ?? ?? ?? ?? 8B 40 10 48 83 C4 28")
+  local fmap_aob = aob_first("48 8B 05 ?? ?? ?? ?? 48 85 C0 75 22 48 89 37 48")
+  local score_aob = aob_first("48 8B 05 ?? ?? ?? ?? 8B 90 10 05 00 00 33 C0 89 54 24 38 83 7C 84 38 00 75 27")
+  local online_aob = aob_first("48 8B 05 ?? ?? ?? ?? 48 85 C0 74 11 0F B6 80 F8 08 00 00 3C 01 0F 94 C0 48 83 C4 28 C3 B0 FF")
+  local save_call_aob = aob_first("E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 44 8B C3 48 83 C1 78 BA 5E F5 4B 4F 48 8B F8 E8 ?? ?? ?? ?? 48 98 48 83 F8 64")
+
+  if not (owner_aob and reward_aob and fmap_aob and score_aob and online_aob and save_call_aob) then
+    return false
+  end
+
+  local owner_ptr = rip_target(owner_aob, 3)
+  local reward_ptr = rip_target(reward_aob, 3)
+  local fmap_ptr = rip_target(fmap_aob, 3)
+  local score_ptr = rip_target(score_aob, 3)
+  local online_ptr = rip_target(online_aob, 3)
+
+  local rel_save = readInteger(save_call_aob + 1, true)
+  local get_save_fn = save_call_aob + 5 + rel_save
+  local save_ptr = nil
+  for off = 0x20, 0x50 do
+    local b0, b1, b2 = readBytes(get_save_fn + off, 3)
+    if b0 == 0x48 and b1 == 0x8B and b2 == 0x05 then
+      save_ptr = rip_target(get_save_fn + off, 3)
+      break
+    end
+  end
+  if not save_ptr then return false end
+
+  registerSymbol("DOA6LR_OwnerPtr", owner_ptr)
+  registerSymbol("DOA6LR_RewardPtr", reward_ptr)
+  registerSymbol("DOA6LR_FighterMapPtr", fmap_ptr)
+  registerSymbol("DOA6LR_ScoreGlobalPtr", score_ptr)
+  registerSymbol("DOA6LR_OnlineObjPtr", online_ptr)
+  registerSymbol("DOA6LR_SaveDataPtr", save_ptr)
+
+  initialized = true
+  doa6lr_update_fighters()
+  return true
+end
+
+local DMG_HOOK_ENABLE = [[
+aobscanmodule(INJ_APPLYDMG,DOA6LR.exe,?? ?? ?? ?? ?? ?? ?? 44 3B F0 41 0F 9D C4 43 8D 0C 3E 3B C8 89 4E 20 0F 9D 45 67 7C 05 89 46 20 8B C8 85 C9 79 05 89 56 20 8B CA 83 7E 18 02)
+alloc(newmem_dmg,512,INJ_APPLYDMG)
+globalalloc(DOA6LR_DmgCfg,16,DOA6LR.exe)
+label(dmg_chk_p2)
+label(dmg_done)
+label(return_dmg)
+
+DOA6LR_DmgCfg:
+  dd 00
+  dd 00
+
+newmem_dmg:
+  mov r14d, [rsi+20]
+  mov eax, [rsi+1C]
+  push rcx
+  push rdx
+  mov rcx, [DOA6LR_OnlineObjPtr]
+  test rcx, rcx
+  jz dmg_online_ok
+  cmp byte ptr [rcx+8F8], 05
+  jb dmg_done
+dmg_online_ok:
+  mov rcx, [DOA6LR_FighterMapPtr]
+  test rcx, rcx
+  jz dmg_done
+  mov rcx, [rcx]
+  test rcx, rcx
+  jz dmg_done
+  cmp dword ptr [DOA6LR_DmgCfg], 00
+  je dmg_chk_p2
+  mov rdx, [rcx]
+  test rdx, rdx
+  jz dmg_chk_p2
+  cmp byte ptr [rdx+19], 00
+  jne dmg_chk_p2
+  cmp byte ptr [rdx+20], 00
+  jne dmg_chk_p2
+  mov rdx, [rdx+28]
+  test rdx, rdx
+  jz dmg_chk_p2
+  mov rdx, [rdx+88]
+  cmp rdx, [rsi+08]
+  jne dmg_chk_p2
+  xor r14d, r14d
+  xor r15d, r15d
+  jmp dmg_done
+dmg_chk_p2:
+  cmp dword ptr [DOA6LR_DmgCfg+04], 00
+  je dmg_done
+  test r15d, r15d
+  jle dmg_done
+  mov rdx, [rcx+10]
+  test rdx, rdx
+  jz dmg_done
+  cmp byte ptr [rdx+19], 00
+  jne dmg_done
+  cmp byte ptr [rdx+20], 01
+  jne dmg_done
+  mov rdx, [rdx+28]
+  test rdx, rdx
+  jz dmg_done
+  mov rdx, [rdx+88]
+  cmp rdx, [rsi+08]
+  jne dmg_done
+  mov r15d, eax
+dmg_done:
+  pop rdx
+  pop rcx
+  jmp return_dmg
+
+INJ_APPLYDMG:
+  jmp newmem_dmg
+  nop 2
+return_dmg:
+registersymbol(INJ_APPLYDMG)
+]]
+
+local DMG_HOOK_DISABLE = [[
+INJ_APPLYDMG:
+  db 44 8B 76 20 8B 46 1C
+unregistersymbol(INJ_APPLYDMG)
+dealloc(newmem_dmg)
+]]
+
+function doa6lr_set_dmg_flag(key, enabled)
+  if enabled then
+    doa6lr_assert_offline()
+    if not dmgState.hookInstalled then
+      local ok, err = autoAssemble(DMG_HOOK_ENABLE)
+      if not ok then error("Damage hook failed: " .. tostring(err)) end
+      dmgState.hookInstalled = true
+    end
+    dmgState[key] = true
+  else
+    dmgState[key] = false
+  end
+  local cfg = getAddressSafe("DOA6LR_DmgCfg")
+  if cfg and cfg ~= 0 then
+    writeInteger(cfg, dmgState.p1_inf and 1 or 0)
+    writeInteger(cfg + 4, dmgState.p2_ohko and 1 or 0)
+  end
+  if dmgState.p1_inf then
+    pcall(doa6lr_refill_p1_health)
+  end
+  if not dmgState.p1_inf and not dmgState.p2_ohko and dmgState.hookInstalled then
+    autoAssemble(DMG_HOOK_DISABLE)
+    dmgState.hookInstalled = false
+  end
+end
+
+local BRK_HOOK_ENABLE = [[
+aobscanmodule(INJ_BRKHELPER,DOA6LR.exe,?? ?? ?? ?? ?? ?? ?? 66 89 3B 74 0C 66 85 FF 75 07 0F B7 43 02 66)
+alloc(newmem_brk,512,INJ_BRKHELPER)
+globalalloc(DOA6LR_BrkCfg,16,DOA6LR.exe)
+label(brk_fmap)
+label(brk_chk_p2)
+label(brk_done)
+label(return_brk)
+
+DOA6LR_BrkCfg:
+  dd 00
+  dd 00
+
+newmem_brk:
+  push rax
+  push rcx
+  push rdx
+  mov rcx, [DOA6LR_OnlineObjPtr]
+  test rcx, rcx
+  jz brk_fmap
+  cmp byte ptr [rcx+8F8], 05
+  jb brk_done
+brk_fmap:
+  mov rcx, [DOA6LR_FighterMapPtr]
+  test rcx, rcx
+  jz brk_done
+  mov rcx, [rcx]
+  test rcx, rcx
+  jz brk_done
+  lea rax, [rbx-580]
+  cmp dword ptr [DOA6LR_BrkCfg], 00
+  je brk_chk_p2
+  mov rdx, [rcx]
+  test rdx, rdx
+  jz brk_chk_p2
+  cmp byte ptr [rdx+19], 00
+  jne brk_chk_p2
+  cmp byte ptr [rdx+20], 00
+  jne brk_chk_p2
+  mov rdx, [rdx+28]
+  test rdx, rdx
+  jz brk_chk_p2
+  cmp rax, [rdx+88]
+  jne brk_chk_p2
+  movzx edi, word ptr [rbx+02]
+  jmp brk_done
+brk_chk_p2:
+  cmp dword ptr [DOA6LR_BrkCfg+04], 00
+  je brk_done
+  mov rdx, [rcx+10]
+  test rdx, rdx
+  jz brk_done
+  cmp byte ptr [rdx+19], 00
+  jne brk_done
+  cmp byte ptr [rdx+20], 01
+  jne brk_done
+  mov rdx, [rdx+28]
+  test rdx, rdx
+  jz brk_done
+  cmp rax, [rdx+88]
+  jne brk_done
+  xor edi, edi
+brk_done:
+  pop rdx
+  pop rcx
+  pop rax
+  cmp byte ptr [rbx+06], 00
+  movzx eax, di
+  jmp return_brk
+
+INJ_BRKHELPER:
+  jmp newmem_brk
+  nop 2
+return_brk:
+registersymbol(INJ_BRKHELPER)
+]]
+
+local BRK_HOOK_DISABLE = [[
+INJ_BRKHELPER:
+  db 80 7B 06 00 0F B7 C7
+unregistersymbol(INJ_BRKHELPER)
+dealloc(newmem_brk)
+]]
+
+function doa6lr_set_brk_flag(key, enabled)
+  if enabled then
+    doa6lr_assert_offline()
+    if not brkState.hookInstalled then
+      local ok, err = autoAssemble(BRK_HOOK_ENABLE)
+      if not ok then error("Break hook failed: " .. tostring(err)) end
+      brkState.hookInstalled = true
+    end
+    brkState[key] = true
+  else
+    brkState[key] = false
+  end
+  local cfg = getAddressSafe("DOA6LR_BrkCfg")
+  if cfg and cfg ~= 0 then
+    writeInteger(cfg, brkState.p1_max and 1 or 0)
+    writeInteger(cfg + 4, brkState.p2_empty and 1 or 0)
+  end
+  if brkState.p1_max then
+    pcall(doa6lr_refill_p1_break)
+  end
+  if brkState.p2_empty then
+    pcall(doa6lr_drain_p2_break)
+  end
+  if not brkState.p1_max and not brkState.p2_empty and brkState.hookInstalled then
+    autoAssemble(BRK_HOOK_DISABLE)
+    brkState.hookInstalled = false
+  end
+end
+
+function doa6lr_refill_p1_health()
+  doa6lr_assert_offline()
+  doa6lr_update_fighters()
+  local p1 = getAddressSafe("DOA6LR_P1Fighter")
+  if p1 and p1 ~= 0 then
+    writeInteger(p1 + 0x1758, 0)
+    writeInteger(p1 + 0x5B4, 0)
+    writeInteger(p1 + 0x5B8, 0)
+  end
+end
+
+function doa6lr_refill_p1_break()
+  doa6lr_assert_offline()
+  doa6lr_update_fighters()
+  local p1 = getAddressSafe("DOA6LR_P1Fighter")
+  if p1 and p1 ~= 0 then
+    local mx = readSmallInteger(p1 + 0x582)
+    if mx and mx &gt; 0 then
+      writeSmallInteger(p1 + 0x580, mx)
+    end
+  end
+end
+
+function doa6lr_drain_p2_break()
+  doa6lr_assert_offline()
+  doa6lr_update_fighters()
+  local p2 = getAddressSafe("DOA6LR_P2Fighter")
+  if p2 and p2 ~= 0 then
+    writeSmallInteger(p2 + 0x580, 0)
+  end
+end
+
+-- Auto-attach &amp; periodic fighter pointer refresh timer
+if doa6lr_timer then doa6lr_timer.destroy() end
+doa6lr_timer = createTimer(nil, true)
+doa6lr_timer.Interval = 250
+doa6lr_timer.OnTimer = function(t)
+  local pid = getProcessIDFromProcessName(TARGET_PROC)
+  if pid and pid ~= 0 then
+    if getOpenedProcessID() ~= pid then
+      initialized = false
+      dmgState.hookInstalled = false
+      dmgState.p1_inf = false
+      dmgState.p2_ohko = false
+      brkState.hookInstalled = false
+      brkState.p1_max = false
+      brkState.p2_empty = false
+      openProcess(pid)
+    end
+    if not initialized then
+      pcall(doa6lr_init)
+    else
+      pcall(doa6lr_update_fighters)
+      if doa6lr_isOffline() then
+        if dmgState.p1_inf then
+          local p1 = getAddressSafe("DOA6LR_P1Fighter")
+          if p1 and p1 ~= 0 and readInteger(p1 + 0x1758) ~= 0 then
+            pcall(doa6lr_refill_p1_health)
+          end
+        end
+        if brkState.p1_max then
+          local p1 = getAddressSafe("DOA6LR_P1Fighter")
+          if p1 and p1 ~= 0 then
+            local cur = readSmallInteger(p1 + 0x580)
+            local mx = readSmallInteger(p1 + 0x582)
+            if cur and mx and mx &gt; 0 and cur &lt; mx then
+              pcall(doa6lr_refill_p1_break)
+            end
+          end
+        end
+        if brkState.p2_empty then
+          local p2 = getAddressSafe("DOA6LR_P2Fighter")
+          if p2 and p2 ~= 0 then
+            local cur = readSmallInteger(p2 + 0x580)
+            if cur and cur &gt; 0 then
+              pcall(doa6lr_drain_p2_break)
+            end
+          end
+        end
+      end
+    end
+  else
+    initialized = false
+    dmgState.hookInstalled = false
+    brkState.hookInstalled = false
+  end
+end
+</LuaScript>
+</CheatTable>
