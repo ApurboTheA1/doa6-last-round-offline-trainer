@@ -107,7 +107,14 @@ Global hotkeys can be toggled with the **Global Numpad Hotkeys** checkbox at the
 | [`memory_engine.py`](memory_engine.py) | Win32 `ctypes` process wrapper, AOB scanner, x64 `AsmBuilder`, hooks, and profile read/write helpers |
 | [`DOA6LR_Trainer.ct`](DOA6LR_Trainer.ct) | Cheat Engine 7.x table (`CT v45`) with Lua auto-attach, offline guard, and Auto Assembler scripts |
 | [`launch_trainer.bat`](launch_trainer.bat) | Windows double-click launcher using `pythonw` (or fallback `python`) |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release notes and optimization history |
 | [`LICENSE`](LICENSE) | MIT License |
+
+---
+
+## Recent Changes
+
+- **v1.1.0:** Replaced `tasklist.exe` polling with native Win32 Toolhelp32 PID lookup, sped up `.text` AOB scanning via literal-anchor search, batched telemetry reads and profile writes, added adaptive GUI polling + dirty-checked redraws + graceful numeric error handling, and cached fighter symbols in [`DOA6LR_Trainer.ct`](DOA6LR_Trainer.ct). See [`CHANGELOG.md`](CHANGELOG.md) for full details.
 
 ---
 
