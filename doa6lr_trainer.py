@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import atexit
 import tkinter as tk
-from tkinter import messagebox, ttk
-from typing import Callable, Dict
+from tkinter import ttk
+from typing import Callable, Dict, Tuple
 
 from memory_engine import DOA6LRMemoryEngine, GameSnapshot
 
@@ -26,6 +26,9 @@ VK_NUMPAD7 = 0x67
 VK_NUMPAD8 = 0x68
 VK_NUMPAD9 = 0x69
 
+POLL_ATTACHED_MS = 120
+POLL_WAITING_MS = 400
+
 
 class DOA6LRTrainerApp:
     """Tkinter trainer GUI driving DOA6LRMemoryEngine."""
@@ -38,7 +41,8 @@ class DOA6LRTrainerApp:
     ACCENT = "#4F8CFF"
     GREEN = "#35C47C"
     RED = "#F25F5C"
-    AMBER = "#F2B84B"
+    RED_BG = "#382529"
+    GREEN_BG = "#1D3329"
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -48,10 +52,12 @@ class DOA6LRTrainerApp:
         self.root.configure(bg=self.BG)
 
         self.engine = DOA6LRMemoryEngine()
+        self._cleaned = False
         atexit.register(self._cleanup_on_exit)
 
         self._hotkeys_enabled = tk.BooleanVar(value=True)
         self._last_hotkey_state: Dict[int, bool] = {}
+        self._ui_cache: Dict[str, object] = {}
 
         # Toggle states
         self.var_p1_inf_hp = tk.BooleanVar(value=False)
@@ -92,7 +98,7 @@ class DOA6LRTrainerApp:
         self._hotkey_actions: Dict[int, Callable[[], None]] = {
             VK_NUMPAD1: lambda: self._flip_bool(self.var_p1_inf_hp, self._apply_dmg),
             VK_NUMPAD2: lambda: self._flip_bool(self.var_p1_max_brk, self._apply_brk),
-            VK_NUMPAD3: self._do_refill_p1_break,
+            VK_NUMPAD3: lambda: self._safe_run(self.engine.refill_p1_break, "Refilled P1 Break Gauge to max."),
             VK_NUMPAD4: lambda: self._flip_bool(self.var_p2_ohko, self._apply_dmg),
             VK_NUMPAD5: lambda: self._flip_bool(self.var_p2_empty_brk, self._apply_brk),
             VK_NUMPAD6: lambda: self._flip_bool(self.var_freeze_timer, self._apply_timer),
@@ -110,41 +116,12 @@ class DOA6LRTrainerApp:
         style.theme_use("clam")
         style.configure("TFrame", background=self.BG)
         style.configure("Card.TFrame", background=self.CARD_BG)
-        style.configure(
-            "Header.TLabel",
-            background=self.BG,
-            foreground=self.FG,
-            font=("Segoe UI", 14, "bold"),
-        )
-        style.configure(
-            "Section.TLabel",
-            background=self.CARD_BG,
-            foreground=self.ACCENT,
-            font=("Segoe UI", 10, "bold"),
-        )
-        style.configure(
-            "Body.TLabel",
-            background=self.CARD_BG,
-            foreground=self.FG,
-            font=("Segoe UI", 9),
-        )
-        style.configure(
-            "Muted.TLabel",
-            background=self.CARD_BG,
-            foreground=self.MUTED,
-            font=("Segoe UI", 9),
-        )
-        style.configure(
-            "Toggle.TCheckbutton",
-            background=self.CARD_BG,
-            foreground=self.FG,
-            font=("Segoe UI", 9),
-        )
-        style.map(
-            "Toggle.TCheckbutton",
-            background=[("active", self.CARD_BG)],
-            foreground=[("active", self.ACCENT)],
-        )
+        style.configure("Header.TLabel", background=self.BG, foreground=self.FG, font=("Segoe UI", 14, "bold"))
+        style.configure("Section.TLabel", background=self.CARD_BG, foreground=self.ACCENT, font=("Segoe UI", 10, "bold"))
+        style.configure("Body.TLabel", background=self.CARD_BG, foreground=self.FG, font=("Segoe UI", 9))
+        style.configure("Muted.TLabel", background=self.CARD_BG, foreground=self.MUTED, font=("Segoe UI", 9))
+        style.configure("Toggle.TCheckbutton", background=self.CARD_BG, foreground=self.FG, font=("Segoe UI", 9))
+        style.map("Toggle.TCheckbutton", background=[("active", self.CARD_BG)], foreground=[("active", self.ACCENT)])
 
     def _card(self, parent: tk.Misc, title: str) -> tk.Frame:
         outer = tk.Frame(
@@ -158,69 +135,43 @@ class DOA6LRTrainerApp:
         ttk.Label(outer, text=title, style="Section.TLabel").pack(anchor="w", pady=(0, 8))
         return outer
 
+    def _pill(self, parent: tk.Misc, var: tk.StringVar, bg: str, fg: str, padx_right: int = 4) -> tk.Label:
+        lbl = tk.Label(
+            parent,
+            textvariable=var,
+            bg=bg,
+            fg=fg,
+            font=("Segoe UI", 8, "bold"),
+            padx=8,
+            pady=4,
+        )
+        lbl.pack(side="left", padx=(4, padx_right))
+        return lbl
+
     def _build_ui(self) -> None:
         # Top header bar
         hdr = tk.Frame(self.root, bg=self.BG, padx=16, pady=12)
         hdr.pack(fill="x")
-        ttk.Label(
-            hdr,
-            text="DEAD OR ALIVE 6 Last Round — Offline Trainer",
-            style="Header.TLabel",
-        ).pack(side="left")
+        ttk.Label(hdr, text="DEAD OR ALIVE 6 Last Round — Offline Trainer", style="Header.TLabel").pack(side="left")
 
         pills = tk.Frame(hdr, bg=self.BG)
         pills.pack(side="right")
-
-        self.pill_match = tk.Label(
-            pills,
-            textvariable=self.lbl_match_var,
-            bg="#262C3A",
-            fg=self.MUTED,
-            font=("Segoe UI", 8, "bold"),
-            padx=8,
-            pady=4,
-        )
-        self.pill_match.pack(side="left", padx=4)
-
-        self.pill_guard = tk.Label(
-            pills,
-            textvariable=self.lbl_guard_var,
-            bg="#1D3329",
-            fg=self.GREEN,
-            font=("Segoe UI", 8, "bold"),
-            padx=8,
-            pady=4,
-        )
-        self.pill_guard.pack(side="left", padx=4)
-
-        self.pill_attach = tk.Label(
-            pills,
-            textvariable=self.lbl_attach_var,
-            bg="#382529",
-            fg=self.RED,
-            font=("Segoe UI", 8, "bold"),
-            padx=8,
-            pady=4,
-        )
-        self.pill_attach.pack(side="left", padx=(4, 0))
+        self.pill_match = self._pill(pills, self.lbl_match_var, "#262C3A", self.MUTED)
+        self.pill_guard = self._pill(pills, self.lbl_guard_var, self.GREEN_BG, self.GREEN)
+        self.pill_attach = self._pill(pills, self.lbl_attach_var, self.RED_BG, self.RED, padx_right=0)
 
         # Telemetry bar
         telem = self._card(self.root, "LIVE TELEMETRY")
         telem.pack(fill="x", padx=16, pady=(0, 10))
         tgrid = tk.Frame(telem, bg=self.CARD_BG)
         tgrid.pack(fill="x")
-        ttk.Label(tgrid, text="Player 1:", style="Muted.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(tgrid, textvariable=self.lbl_p1_stats, style="Body.TLabel").grid(
-            row=0, column=1, sticky="w", padx=8
-        )
-        ttk.Label(tgrid, text="Player 2:", style="Muted.TLabel").grid(row=1, column=0, sticky="w", pady=2)
-        ttk.Label(tgrid, textvariable=self.lbl_p2_stats, style="Body.TLabel").grid(
-            row=1, column=1, sticky="w", padx=8, pady=2
-        )
-        ttk.Label(tgrid, text="Profile:", style="Muted.TLabel").grid(row=2, column=0, sticky="w")
-        ttk.Label(tgrid, textvariable=self.lbl_eco_stats, style="Body.TLabel").grid(
-            row=2, column=1, sticky="w", padx=8
-        )
+        for row, (label, var, pady) in enumerate((
+            ("Player 1:", self.lbl_p1_stats, 0),
+            ("Player 2:", self.lbl_p2_stats, 2),
+            ("Profile:", self.lbl_eco_stats, 0),
+        )):
+            ttk.Label(tgrid, text=label, style="Muted.TLabel").grid(row=row, column=0, sticky="w", pady=pady)
+            ttk.Label(tgrid, textvariable=var, style="Body.TLabel").grid(row=row, column=1, sticky="w", padx=8, pady=pady)
 
         # Two main columns
         cols = tk.Frame(self.root, bg=self.BG)
@@ -236,7 +187,11 @@ class DOA6LRTrainerApp:
         combat.pack(fill="x", pady=(0, 10))
         self._add_toggle(combat, "[Num 1]  Infinite Health (P1)", self.var_p1_inf_hp, self._apply_dmg)
         self._add_toggle(combat, "[Num 2]  Max / Infinite Break Gauge (P1)", self.var_p1_max_brk, self._apply_brk)
-        self._add_action_btn(combat, "[Num 3]  Instant Refill Break Gauge (P1)", self._do_refill_p1_break)
+        self._add_action_btn(
+            combat,
+            "[Num 3]  Instant Refill Break Gauge (P1)",
+            lambda: self._safe_run(self.engine.refill_p1_break, "Refilled P1 Break Gauge to max."),
+        )
         self._add_toggle(combat, "[Num 4]  One-Hit K.O. (P2 / AI)", self.var_p2_ohko, self._apply_dmg)
         self._add_toggle(combat, "[Num 5]  Empty Opponent Break Gauge (P2 / AI)", self.var_p2_empty_brk, self._apply_brk)
         self._add_toggle(combat, "[Num 6]  Freeze Match Timer", self.var_freeze_timer, self._apply_timer)
@@ -293,29 +248,69 @@ class DOA6LRTrainerApp:
 
         profile = self._card(right_col, "PLAYER MONEY, OWNER EXP & CHARACTER POINTS")
         profile.pack(fill="x", pady=(0, 10))
-        self._add_editor_row(profile, "Player Points / Money:", self.entry_money, "Set", self._set_money)
-        self._add_editor_row(profile, "Owner EXP / Grade:", self.entry_exp, "Set", self._set_exp)
-        self._add_editor_row(profile, "All Chars Points (0..34):", self.entry_cp, "Set All", self._set_cp)
-        self._add_editor_row(profile, "Live Course Score:", self.entry_score, "Write", self._set_live_score)
+        self._add_editor_row(
+            profile,
+            "Player Points / Money:",
+            self.entry_money,
+            "Set",
+            lambda: self._apply_numeric_entry(self.entry_money, self.engine.set_money, "Money set to {:,}"),
+        )
+        self._add_editor_row(
+            profile,
+            "Owner EXP / Grade:",
+            self.entry_exp,
+            "Set",
+            lambda: self._apply_numeric_entry(self.entry_exp, self.engine.set_owner_exp, "Owner EXP set to {:,}"),
+        )
+        self._add_editor_row(
+            profile,
+            "All Chars Points (0..34):",
+            self.entry_cp,
+            "Set All",
+            lambda: self._apply_numeric_entry(
+                self.entry_cp, self.engine.set_all_character_points, "Set All Character Points (0..34) to {:,}"
+            ),
+        )
+        self._add_editor_row(
+            profile,
+            "Live Course Score:",
+            self.entry_score,
+            "Write",
+            lambda: self._apply_numeric_entry(self.entry_score, self.engine.set_live_score, "Live Course Score set to {:,}"),
+        )
 
         presets = tk.Frame(profile, bg=self.CARD_BG)
         presets.pack(fill="x", pady=(8, 0))
-        self._mini_btn(
-            presets,
-            "Max Money + EXP + Char Pts",
-            self._preset_max_economy,
-        ).pack(side="left")
+        self._mini_btn(presets, "Max Money + EXP + Char Pts", self._preset_max_economy).pack(side="left")
 
         ctrl = self._card(right_col, "QUICK MATCH ACTIONS")
         ctrl.pack(fill="both", expand=True)
         qrow1 = tk.Frame(ctrl, bg=self.CARD_BG)
         qrow1.pack(fill="x", pady=4)
-        self._mini_btn(qrow1, "Heal P1 Full HP", self._do_heal_p1).pack(side="left", padx=(0, 6))
-        self._mini_btn(qrow1, "Refill P1 Break", self._do_refill_p1_break).pack(side="left", padx=6)
-        self._mini_btn(qrow1, "Drain P2 Break", self._do_drain_p2_break).pack(side="left", padx=6)
+        self._mini_btn(
+            qrow1,
+            "Heal P1 Full HP",
+            lambda: self._safe_run(self.engine.refill_p1_health, "Restored P1 damage taken to 0 (Full HP)."),
+        ).pack(side="left", padx=(0, 6))
+        self._mini_btn(
+            qrow1,
+            "Refill P1 Break",
+            lambda: self._safe_run(self.engine.refill_p1_break, "Refilled P1 Break Gauge to max."),
+        ).pack(side="left", padx=6)
+        self._mini_btn(
+            qrow1,
+            "Drain P2 Break",
+            lambda: self._safe_run(self.engine.drain_p2_break, "Emptied P2 Break Gauge."),
+        ).pack(side="left", padx=6)
 
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=10)
-        self._add_action_btn(ctrl, "Disable All Active Cheats & Restore Bytes", self.disable_all_cheats, bg="#382529", fg=self.RED)
+        self._add_action_btn(
+            ctrl,
+            "Disable All Active Cheats & Restore Bytes",
+            self.disable_all_cheats,
+            bg=self.RED_BG,
+            fg=self.RED,
+        )
         self._add_action_btn(ctrl, "Force Rescan DOA6LR.exe Symbols", self._force_rescan)
 
         # Bottom status & hotkey bar
@@ -341,9 +336,9 @@ class DOA6LRTrainerApp:
         ).pack(side="right")
 
     def _add_toggle(self, parent: tk.Misc, text: str, var: tk.BooleanVar, cmd: Callable[[], None]) -> None:
-        ttk.Checkbutton(
-            parent, text=text, variable=var, command=cmd, style="Toggle.TCheckbutton"
-        ).pack(anchor="w", pady=3)
+        ttk.Checkbutton(parent, text=text, variable=var, command=cmd, style="Toggle.TCheckbutton").pack(
+            anchor="w", pady=3
+        )
 
     def _add_action_btn(
         self,
@@ -417,8 +412,16 @@ class DOA6LRTrainerApp:
             self.lbl_status_msg.set(ok_msg)
         except Exception as exc:
             self.lbl_status_msg.set(f"Blocked/Error: {exc}")
-            # Roll back toggles if blocked online
             self._sync_toggles_to_engine_state()
+
+    def _apply_numeric_entry(self, var: tk.StringVar, setter: Callable[[int], None], ok_fmt: str) -> None:
+        raw = var.get().replace(",", "").strip()
+        try:
+            val = int(raw)
+        except ValueError:
+            self.lbl_status_msg.set(f"Invalid number: {raw!r}")
+            return
+        self._safe_run(lambda: setter(val), ok_fmt.format(val))
 
     def _sync_toggles_to_engine_state(self) -> None:
         hooks = self.engine.installed_hooks
@@ -438,16 +441,14 @@ class DOA6LRTrainerApp:
         self.var_quest_3_stars.set("quest_3_stars" in patches)
 
     def _apply_dmg(self) -> None:
-        p1 = self.var_p1_inf_hp.get()
-        p2 = self.var_p2_ohko.get()
+        p1, p2 = self.var_p1_inf_hp.get(), self.var_p2_ohko.get()
         self._safe_run(
             lambda: self.engine.set_damage_flags(p1, p2),
             f"Health hook updated (P1 Inf={p1}, P2 1-Hit KO={p2})",
         )
 
     def _apply_brk(self) -> None:
-        p1 = self.var_p1_max_brk.get()
-        p2 = self.var_p2_empty_brk.get()
+        p1, p2 = self.var_p1_max_brk.get(), self.var_p2_empty_brk.get()
         self._safe_run(
             lambda: self.engine.set_break_flags(p1, p2),
             f"Break hook updated (P1 Max={p1}, P2 Empty={p2})",
@@ -455,10 +456,7 @@ class DOA6LRTrainerApp:
 
     def _apply_timer(self) -> None:
         en = self.var_freeze_timer.get()
-        self._safe_run(
-            lambda: self.engine.set_freeze_timer(en),
-            f"Match Timer {'FROZEN' if en else 'UNFROZEN'}",
-        )
+        self._safe_run(lambda: self.engine.set_freeze_timer(en), f"Match Timer {'FROZEN' if en else 'UNFROZEN'}")
 
     def _apply_challenges(self) -> None:
         en = self.var_clear_chal.get()
@@ -475,17 +473,14 @@ class DOA6LRTrainerApp:
         )
 
     def _apply_score(self) -> None:
-        en = self.var_score_cheat.get()
-        mult = self.var_score_mult.get()
-        mx = self.var_score_max_mode.get()
+        en, mult, mx = self.var_score_cheat.get(), self.var_score_mult.get(), self.var_score_max_mode.get()
         self._safe_run(
             lambda: self.engine.set_score_cheat(en, mult, mx),
             f"Score cheat {'ENABLED' if en else 'DISABLED'}",
         )
 
     def _apply_speed(self) -> None:
-        en = self.var_speed_cheat.get()
-        sc = self.var_speed_scale.get()
+        en, sc = self.var_speed_cheat.get(), self.var_speed_scale.get()
         self._safe_run(
             lambda: self.engine.set_speed_cheat(en, sc),
             f"Game Speed: {sc:.2f}x" if en else "Game Speed: Normal (1.0x)",
@@ -496,36 +491,12 @@ class DOA6LRTrainerApp:
         self.var_speed_cheat.set(not disable)
         self._apply_speed()
 
-    def _do_refill_p1_break(self) -> None:
-        self._safe_run(self.engine.refill_p1_break, "Refilled P1 Break Gauge to max.")
-
-    def _do_drain_p2_break(self) -> None:
-        self._safe_run(self.engine.drain_p2_break, "Emptied P2 Break Gauge.")
-
-    def _do_heal_p1(self) -> None:
-        self._safe_run(self.engine.refill_p1_health, "Restored P1 damage taken to 0 (Full HP).")
-
-    def _set_money(self) -> None:
-        val = int(self.entry_money.get().replace(",", "").strip())
-        self._safe_run(lambda: self.engine.set_money(val), f"Money set to {val:,}")
-
-    def _set_exp(self) -> None:
-        val = int(self.entry_exp.get().replace(",", "").strip())
-        self._safe_run(lambda: self.engine.set_owner_exp(val), f"Owner EXP set to {val:,}")
-
-    def _set_cp(self) -> None:
-        val = int(self.entry_cp.get().replace(",", "").strip())
-        self._safe_run(lambda: self.engine.set_all_character_points(val), f"Set All Character Points (0..34) to {val:,}")
-
-    def _set_live_score(self) -> None:
-        val = int(self.entry_score.get().replace(",", "").strip())
-        self._safe_run(lambda: self.engine.set_live_score(val), f"Live Course Score set to {val:,}")
-
     def _preset_max_economy(self) -> None:
         def apply_all() -> None:
             self.engine.set_money(999999999)
             self.engine.set_owner_exp(99999999)
             self.engine.set_all_character_points(999999)
+
         self._safe_run(apply_all, "Maxed Money, Owner EXP, and Character Points (0..34).")
 
     def _force_rescan(self) -> None:
@@ -534,22 +505,39 @@ class DOA6LRTrainerApp:
         self.lbl_status_msg.set("Detached cleanly; rescanning DOA6LR.exe...")
 
     def disable_all_cheats(self) -> None:
-        self.var_p1_inf_hp.set(False)
-        self.var_p1_max_brk.set(False)
-        self.var_p2_ohko.set(False)
-        self.var_p2_empty_brk.set(False)
-        self.var_freeze_timer.set(False)
-        self.var_clear_chal.set(False)
-        self.var_quest_3_stars.set(False)
-        self.var_score_cheat.set(False)
-        self.var_speed_cheat.set(False)
+        for var in (
+            self.var_p1_inf_hp,
+            self.var_p1_max_brk,
+            self.var_p2_ohko,
+            self.var_p2_empty_brk,
+            self.var_freeze_timer,
+            self.var_clear_chal,
+            self.var_quest_3_stars,
+            self.var_score_cheat,
+            self.var_speed_cheat,
+        ):
+            var.set(False)
         if self.engine.is_attached:
             self.engine.disable_all_patches()
             self.engine.uninstall_all_hooks()
         self.lbl_status_msg.set("All cheats disabled and original bytes restored.")
 
+    def _set_if_changed(self, key: str, var: tk.StringVar, value: str) -> None:
+        if self._ui_cache.get(key) != value:
+            self._ui_cache[key] = value
+            var.set(value)
+
+    def _style_pill(self, key: str, lbl: tk.Label, var: tk.StringVar, text: str, bg: str, fg: str) -> None:
+        self._set_if_changed(f"{key}_txt", var, text)
+        colors: Tuple[str, str] = (bg, fg)
+        if self._ui_cache.get(f"{key}_col") != colors:
+            self._ui_cache[f"{key}_col"] = colors
+            lbl.configure(bg=bg, fg=fg)
+
     def _poll_hotkeys(self) -> None:
         if not self._hotkeys_enabled.get() or not self.engine.is_attached:
+            if self._last_hotkey_state:
+                self._last_hotkey_state.clear()
             return
         for vk, action in self._hotkey_actions.items():
             pressed = self.engine.hotkey_pressed(vk)
@@ -560,89 +548,100 @@ class DOA6LRTrainerApp:
 
     def _update_ui_from_snapshot(self, snap: GameSnapshot) -> None:
         if not snap.attached:
-            self.lbl_attach_var.set("WAITING FOR DOA6LR.EXE...")
-            self.pill_attach.configure(bg="#382529", fg=self.RED)
-            self.lbl_match_var.set("NOT ATTACHED")
-            self.lbl_guard_var.set("OFFLINE GUARD READY")
-            self.pill_guard.configure(bg="#1D3329", fg=self.GREEN)
+            self._style_pill("attach", self.pill_attach, self.lbl_attach_var, "WAITING FOR DOA6LR.EXE...", self.RED_BG, self.RED)
+            self._style_pill("match", self.pill_match, self.lbl_match_var, "NOT ATTACHED", "#262C3A", self.MUTED)
+            self._style_pill("guard", self.pill_guard, self.lbl_guard_var, "OFFLINE GUARD READY", self.GREEN_BG, self.GREEN)
             return
 
-        self.lbl_attach_var.set(f"ATTACHED (PID {snap.pid})")
-        self.pill_attach.configure(bg="#1D3329", fg=self.GREEN)
+        self._style_pill("attach", self.pill_attach, self.lbl_attach_var, f"ATTACHED (PID {snap.pid})", self.GREEN_BG, self.GREEN)
 
         if not snap.offline:
-            self.lbl_guard_var.set(f"ONLINE DETECTED ({snap.online_flag}) — CHEATS LOCKED")
-            self.pill_guard.configure(bg="#382529", fg=self.RED)
-            # Auto-disable active patches/hooks immediately if user goes online
+            self._style_pill(
+                "guard",
+                self.pill_guard,
+                self.lbl_guard_var,
+                f"ONLINE DETECTED ({snap.online_flag}) — CHEATS LOCKED",
+                self.RED_BG,
+                self.RED,
+            )
             if self.engine.installed_hooks or self.engine.installed_patches:
                 self.disable_all_cheats()
                 self.lbl_status_msg.set("Offline Guard: Online mode entered; all cheats automatically disabled.")
         else:
-            self.lbl_guard_var.set(f"OFFLINE SAFE (FLAG {snap.online_flag})")
-            self.pill_guard.configure(bg="#1D3329", fg=self.GREEN)
+            self._style_pill(
+                "guard", self.pill_guard, self.lbl_guard_var, f"OFFLINE SAFE (FLAG {snap.online_flag})", self.GREEN_BG, self.GREEN
+            )
 
-        self.lbl_match_var.set("IN MATCH" if snap.in_match else "MENU / IDLE")
-        self.pill_match.configure(
-            bg="#1F2E4D" if snap.in_match else "#262C3A",
-            fg=self.ACCENT if snap.in_match else self.MUTED,
+        self._style_pill(
+            "match",
+            self.pill_match,
+            self.lbl_match_var,
+            "IN MATCH" if snap.in_match else "MENU / IDLE",
+            "#1F2E4D" if snap.in_match else "#262C3A",
+            self.ACCENT if snap.in_match else self.MUTED,
         )
 
-        if snap.p1:
-            self.lbl_p1_stats.set(
-                f"HP: {snap.p1.current_hp} / {snap.p1.max_hp} (Dmg {snap.p1.damage_taken})   |   "
-                f"Break: {snap.p1.break_cur} / {snap.p1.break_max}   |   DmgMode: {snap.p1.damage_mode}"
-            )
-        else:
-            self.lbl_p1_stats.set("Fighter 1 unavailable")
-
-        if snap.p2:
-            self.lbl_p2_stats.set(
-                f"HP: {snap.p2.current_hp} / {snap.p2.max_hp} (Dmg {snap.p2.damage_taken})   |   "
-                f"Break: {snap.p2.break_cur} / {snap.p2.break_max}   |   DmgMode: {snap.p2.damage_mode}"
-            )
-        else:
-            self.lbl_p2_stats.set("Fighter 2 unavailable")
-
-        self.lbl_eco_stats.set(
+        p1_txt = (
+            f"HP: {snap.p1.current_hp} / {snap.p1.max_hp} (Dmg {snap.p1.damage_taken})   |   "
+            f"Break: {snap.p1.break_cur} / {snap.p1.break_max}   |   DmgMode: {snap.p1.damage_mode}"
+            if snap.p1
+            else "Fighter 1 unavailable"
+        )
+        p2_txt = (
+            f"HP: {snap.p2.current_hp} / {snap.p2.max_hp} (Dmg {snap.p2.damage_taken})   |   "
+            f"Break: {snap.p2.break_cur} / {snap.p2.break_max}   |   DmgMode: {snap.p2.damage_mode}"
+            if snap.p2
+            else "Fighter 2 unavailable"
+        )
+        eco_txt = (
             f"Money: {snap.money:,}   |   Owner EXP: {snap.owner_exp:,}   |   "
             f"Live Score: {snap.live_score:,}   |   FrameSpd: {snap.frame_speed:.2f}x"
         )
+        self._set_if_changed("p1", self.lbl_p1_stats, p1_txt)
+        self._set_if_changed("p2", self.lbl_p2_stats, p2_txt)
+        self._set_if_changed("eco", self.lbl_eco_stats, eco_txt)
 
     def _poll_loop(self) -> None:
         try:
             if not self.engine.is_attached:
                 if self.engine.attach():
-                    self.lbl_status_msg.set(f"Attached to DOA6LR.exe (PID {self.engine.pid}). Symbols resolved via AOB.")
-            else:
-                # Re-check alive
-                if self.engine.read_bytes(self.engine.syms.base, 2) != b"MZ":  # type: ignore[union-attr]
-                    self.engine.detach(restore_patches=False)
-                    self._sync_toggles_to_engine_state()
-                    self.lbl_status_msg.set("DOA6LR.exe closed. Waiting for game restart...")
+                    self.lbl_status_msg.set(
+                        f"Attached to DOA6LR.exe (PID {self.engine.pid}). Symbols resolved via AOB."
+                    )
+            elif self.engine.read_bytes(self.engine.syms.base, 2) != b"MZ":  # type: ignore[union-attr]
+                self.engine.detach(restore_patches=False)
+                self._sync_toggles_to_engine_state()
+                self.lbl_status_msg.set("DOA6LR.exe closed. Waiting for game restart...")
 
             snap = self.engine.read_snapshot()
             if snap.attached and snap.offline:
                 if self.var_p1_inf_hp.get() and snap.p1 and snap.p1.damage_taken != 0:
-                    self.engine.refill_p1_health()
-                    snap = self.engine.read_snapshot()
+                    self.engine.refill_p1_health(snap.p1.fighter_ptr)
+                    snap.p1.damage_taken = 0
                 if (
                     self.var_p1_max_brk.get()
                     and snap.p1
                     and snap.p1.break_max > 0
                     and snap.p1.break_cur < snap.p1.break_max
                 ):
-                    self.engine.refill_p1_break()
+                    self.engine.refill_p1_break(snap.p1.fighter_ptr, snap.p1.break_max)
+                    snap.p1.break_cur = snap.p1.break_max
                 if self.var_p2_empty_brk.get() and snap.p2 and snap.p2.break_cur > 0:
-                    self.engine.drain_p2_break()
+                    self.engine.drain_p2_break(snap.p2.fighter_ptr)
+                    snap.p2.break_cur = 0
+
             self._update_ui_from_snapshot(snap)
             self._poll_hotkeys()
         except Exception as exc:
             self.lbl_status_msg.set(f"Scan/Poll notice: {exc}")
 
-        self.root.after(120, self._poll_loop)
+        interval = POLL_ATTACHED_MS if self.engine.is_attached else POLL_WAITING_MS
+        self.root.after(interval, self._poll_loop)
 
     def _cleanup_on_exit(self) -> None:
-        self.engine.detach(restore_patches=True)
+        if not self._cleaned:
+            self._cleaned = True
+            self.engine.detach(restore_patches=True)
 
     def _on_close(self) -> None:
         self._cleanup_on_exit()

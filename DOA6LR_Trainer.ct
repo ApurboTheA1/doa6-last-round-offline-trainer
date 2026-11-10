@@ -562,6 +562,7 @@ end
   <LuaScript>-- DOA6 Last Round (DOA6LR.exe) Dynamic Symbol &amp; Offline Safety Script
 local TARGET_PROC = "DOA6LR.exe"
 local initialized = false
+local lastP1, lastP2 = 0, 0
 local dmgState = { p1_inf = false, p2_ohko = false, hookInstalled = false }
 local brkState = { p1_max = false, p2_empty = false, hookInstalled = false }
 
@@ -581,6 +582,23 @@ local function rip_target(inst_addr, op_len)
   local disp = readInteger(inst_addr + op_len, true)
   if not disp then return nil end
   return inst_addr + op_len + 4 + disp
+end
+
+local function read_fighter_node(node_ptr, expected_key)
+  if not node_ptr or node_ptr == 0 then return 0 end
+  if readBytes(node_ptr + 0x19, 1, false) ~= 0 then return 0 end
+  if readBytes(node_ptr + 0x20, 1, false) ~= expected_key then return 0 end
+  local slot = readQword(node_ptr + 0x28)
+  if not slot or slot == 0 then return 0 end
+  return readQword(slot + 0x88) or 0
+end
+
+local function sync_fighter_symbol(sym_name, cached, value)
+  if value ~= cached then
+    unregisterSymbol(sym_name)
+    if value ~= 0 then registerSymbol(sym_name, value) end
+  end
+  return value
 end
 
 function doa6lr_isOffline()
@@ -604,28 +622,14 @@ function doa6lr_update_fighters()
   local fmap_sym = getAddressSafe("DOA6LR_FighterMapPtr")
   if not fmap_sym or fmap_sym == 0 then return end
   local fmap = readQword(fmap_sym)
-  if not fmap or fmap == 0 then return end
-  local head = readQword(fmap)
-  if not head or head == 0 then return end
-
-  local function read_node(node_ptr, expected_key)
-    if not node_ptr or node_ptr == 0 then return 0 end
-    local is_nil = readBytes(node_ptr + 0x19, 1, false)
-    if is_nil ~= 0 then return 0 end
-    local key = readBytes(node_ptr + 0x20, 1, false)
-    if key ~= expected_key then return 0 end
-    local slot = readQword(node_ptr + 0x28)
-    if not slot or slot == 0 then return 0 end
-    local f = readQword(slot + 0x88)
-    return f or 0
+  local head = (fmap and fmap ~= 0) and readQword(fmap) or 0
+  local p1, p2 = 0, 0
+  if head and head ~= 0 then
+    p1 = read_fighter_node(readQword(head + 0x00), 0)
+    p2 = read_fighter_node(readQword(head + 0x10), 1)
   end
-
-  local p1 = read_node(readQword(head + 0x00), 0)
-  local p2 = read_node(readQword(head + 0x10), 1)
-  unregisterSymbol("DOA6LR_P1Fighter")
-  unregisterSymbol("DOA6LR_P2Fighter")
-  if p1 ~= 0 then registerSymbol("DOA6LR_P1Fighter", p1) end
-  if p2 ~= 0 then registerSymbol("DOA6LR_P2Fighter", p2) end
+  lastP1 = sync_fighter_symbol("DOA6LR_P1Fighter", lastP1, p1)
+  lastP2 = sync_fighter_symbol("DOA6LR_P2Fighter", lastP2, p2)
 end
 
 function doa6lr_init()
@@ -651,12 +655,6 @@ function doa6lr_init()
     return false
   end
 
-  local owner_ptr = rip_target(owner_aob, 3)
-  local reward_ptr = rip_target(reward_aob, 3)
-  local fmap_ptr = rip_target(fmap_aob, 3)
-  local score_ptr = rip_target(score_aob, 3)
-  local online_ptr = rip_target(online_aob, 3)
-
   local rel_save = readInteger(save_call_aob + 1, true)
   local get_save_fn = save_call_aob + 5 + rel_save
   local save_ptr = nil
@@ -669,14 +667,17 @@ function doa6lr_init()
   end
   if not save_ptr then return false end
 
-  registerSymbol("DOA6LR_OwnerPtr", owner_ptr)
-  registerSymbol("DOA6LR_RewardPtr", reward_ptr)
-  registerSymbol("DOA6LR_FighterMapPtr", fmap_ptr)
-  registerSymbol("DOA6LR_ScoreGlobalPtr", score_ptr)
-  registerSymbol("DOA6LR_OnlineObjPtr", online_ptr)
+  registerSymbol("DOA6LR_OwnerPtr", rip_target(owner_aob, 3))
+  registerSymbol("DOA6LR_RewardPtr", rip_target(reward_aob, 3))
+  registerSymbol("DOA6LR_FighterMapPtr", rip_target(fmap_aob, 3))
+  registerSymbol("DOA6LR_ScoreGlobalPtr", rip_target(score_aob, 3))
+  registerSymbol("DOA6LR_OnlineObjPtr", rip_target(online_aob, 3))
   registerSymbol("DOA6LR_SaveDataPtr", save_ptr)
 
   initialized = true
+  unregisterSymbol("DOA6LR_P1Fighter")
+  unregisterSymbol("DOA6LR_P2Fighter")
+  lastP1, lastP2 = 0, 0
   doa6lr_update_fighters()
   return true
 end
@@ -766,32 +767,6 @@ unregistersymbol(INJ_APPLYDMG)
 dealloc(newmem_dmg)
 ]]
 
-function doa6lr_set_dmg_flag(key, enabled)
-  if enabled then
-    doa6lr_assert_offline()
-    if not dmgState.hookInstalled then
-      local ok, err = autoAssemble(DMG_HOOK_ENABLE)
-      if not ok then error("Damage hook failed: " .. tostring(err)) end
-      dmgState.hookInstalled = true
-    end
-    dmgState[key] = true
-  else
-    dmgState[key] = false
-  end
-  local cfg = getAddressSafe("DOA6LR_DmgCfg")
-  if cfg and cfg ~= 0 then
-    writeInteger(cfg, dmgState.p1_inf and 1 or 0)
-    writeInteger(cfg + 4, dmgState.p2_ohko and 1 or 0)
-  end
-  if dmgState.p1_inf then
-    pcall(doa6lr_refill_p1_health)
-  end
-  if not dmgState.p1_inf and not dmgState.p2_ohko and dmgState.hookInstalled then
-    autoAssemble(DMG_HOOK_DISABLE)
-    dmgState.hookInstalled = false
-  end
-end
-
 local BRK_HOOK_ENABLE = [[
 aobscanmodule(INJ_BRKHELPER,DOA6LR.exe,?? ?? ?? ?? ?? ?? ?? 66 89 3B 74 0C 66 85 FF 75 07 0F B7 43 02 66)
 alloc(newmem_brk,512,INJ_BRKHELPER)
@@ -876,6 +851,47 @@ unregistersymbol(INJ_BRKHELPER)
 dealloc(newmem_brk)
 ]]
 
+local function write_p1_health(p1)
+  if p1 and p1 ~= 0 then
+    writeInteger(p1 + 0x1758, 0)
+    writeQword(p1 + 0x5B4, 0)
+  end
+end
+
+local function write_p1_break(p1, mx)
+  if p1 and p1 ~= 0 and mx and mx &gt; 0 then
+    writeSmallInteger(p1 + 0x580, mx)
+  end
+end
+
+local function write_p2_break(p2)
+  if p2 and p2 ~= 0 then
+    writeSmallInteger(p2 + 0x580, 0)
+  end
+end
+
+function doa6lr_set_dmg_flag(key, enabled)
+  if enabled then
+    doa6lr_assert_offline()
+    if not dmgState.hookInstalled then
+      local ok, err = autoAssemble(DMG_HOOK_ENABLE)
+      if not ok then error("Damage hook failed: " .. tostring(err)) end
+      dmgState.hookInstalled = true
+    end
+  end
+  dmgState[key] = enabled and true or false
+  local cfg = getAddressSafe("DOA6LR_DmgCfg")
+  if cfg and cfg ~= 0 then
+    writeInteger(cfg, dmgState.p1_inf and 1 or 0)
+    writeInteger(cfg + 4, dmgState.p2_ohko and 1 or 0)
+  end
+  if dmgState.p1_inf then pcall(write_p1_health, lastP1 &gt; 0 and lastP1 or getAddressSafe("DOA6LR_P1Fighter")) end
+  if not dmgState.p1_inf and not dmgState.p2_ohko and dmgState.hookInstalled then
+    autoAssemble(DMG_HOOK_DISABLE)
+    dmgState.hookInstalled = false
+  end
+end
+
 function doa6lr_set_brk_flag(key, enabled)
   if enabled then
     doa6lr_assert_offline()
@@ -884,21 +900,15 @@ function doa6lr_set_brk_flag(key, enabled)
       if not ok then error("Break hook failed: " .. tostring(err)) end
       brkState.hookInstalled = true
     end
-    brkState[key] = true
-  else
-    brkState[key] = false
   end
+  brkState[key] = enabled and true or false
   local cfg = getAddressSafe("DOA6LR_BrkCfg")
   if cfg and cfg ~= 0 then
     writeInteger(cfg, brkState.p1_max and 1 or 0)
     writeInteger(cfg + 4, brkState.p2_empty and 1 or 0)
   end
-  if brkState.p1_max then
-    pcall(doa6lr_refill_p1_break)
-  end
-  if brkState.p2_empty then
-    pcall(doa6lr_drain_p2_break)
-  end
+  if brkState.p1_max then pcall(doa6lr_refill_p1_break) end
+  if brkState.p2_empty then pcall(write_p2_break, lastP2 &gt; 0 and lastP2 or getAddressSafe("DOA6LR_P2Fighter")) end
   if not brkState.p1_max and not brkState.p2_empty and brkState.hookInstalled then
     autoAssemble(BRK_HOOK_DISABLE)
     brkState.hookInstalled = false
@@ -907,34 +917,19 @@ end
 
 function doa6lr_refill_p1_health()
   doa6lr_assert_offline()
-  doa6lr_update_fighters()
-  local p1 = getAddressSafe("DOA6LR_P1Fighter")
-  if p1 and p1 ~= 0 then
-    writeInteger(p1 + 0x1758, 0)
-    writeInteger(p1 + 0x5B4, 0)
-    writeInteger(p1 + 0x5B8, 0)
-  end
+  write_p1_health(lastP1)
 end
 
 function doa6lr_refill_p1_break()
   doa6lr_assert_offline()
-  doa6lr_update_fighters()
-  local p1 = getAddressSafe("DOA6LR_P1Fighter")
-  if p1 and p1 ~= 0 then
-    local mx = readSmallInteger(p1 + 0x582)
-    if mx and mx &gt; 0 then
-      writeSmallInteger(p1 + 0x580, mx)
-    end
+  if lastP1 &gt; 0 then
+    write_p1_break(lastP1, readSmallInteger(lastP1 + 0x582))
   end
 end
 
 function doa6lr_drain_p2_break()
   doa6lr_assert_offline()
-  doa6lr_update_fighters()
-  local p2 = getAddressSafe("DOA6LR_P2Fighter")
-  if p2 and p2 ~= 0 then
-    writeSmallInteger(p2 + 0x580, 0)
-  end
+  write_p2_break(lastP2)
 end
 
 -- Auto-attach &amp; periodic fighter pointer refresh timer
@@ -943,53 +938,47 @@ doa6lr_timer = createTimer(nil, true)
 doa6lr_timer.Interval = 250
 doa6lr_timer.OnTimer = function(t)
   local pid = getProcessIDFromProcessName(TARGET_PROC)
-  if pid and pid ~= 0 then
-    if getOpenedProcessID() ~= pid then
-      initialized = false
-      dmgState.hookInstalled = false
-      dmgState.p1_inf = false
-      dmgState.p2_ohko = false
-      brkState.hookInstalled = false
-      brkState.p1_max = false
-      brkState.p2_empty = false
-      openProcess(pid)
-    end
-    if not initialized then
-      pcall(doa6lr_init)
-    else
-      pcall(doa6lr_update_fighters)
-      if doa6lr_isOffline() then
-        if dmgState.p1_inf then
-          local p1 = getAddressSafe("DOA6LR_P1Fighter")
-          if p1 and p1 ~= 0 and readInteger(p1 + 0x1758) ~= 0 then
-            pcall(doa6lr_refill_p1_health)
-          end
-        end
-        if brkState.p1_max then
-          local p1 = getAddressSafe("DOA6LR_P1Fighter")
-          if p1 and p1 ~= 0 then
-            local cur = readSmallInteger(p1 + 0x580)
-            local mx = readSmallInteger(p1 + 0x582)
-            if cur and mx and mx &gt; 0 and cur &lt; mx then
-              pcall(doa6lr_refill_p1_break)
-            end
-          end
-        end
-        if brkState.p2_empty then
-          local p2 = getAddressSafe("DOA6LR_P2Fighter")
-          if p2 and p2 ~= 0 then
-            local cur = readSmallInteger(p2 + 0x580)
-            if cur and cur &gt; 0 then
-              pcall(doa6lr_drain_p2_break)
-            end
-          end
-        end
-      end
-    end
-  else
+  if not pid or pid == 0 then
     initialized = false
+    lastP1, lastP2 = 0, 0
     dmgState.hookInstalled = false
     brkState.hookInstalled = false
+    return
+  end
+
+  if getOpenedProcessID() ~= pid then
+    initialized = false
+    lastP1, lastP2 = 0, 0
+    dmgState.hookInstalled, dmgState.p1_inf, dmgState.p2_ohko = false, false, false
+    brkState.hookInstalled, brkState.p1_max, brkState.p2_empty = false, false, false
+    openProcess(pid)
+  end
+
+  if not initialized then
+    pcall(doa6lr_init)
+    return
+  end
+
+  pcall(doa6lr_update_fighters)
+  if not doa6lr_isOffline() then return end
+
+  if lastP1 &gt; 0 then
+    if dmgState.p1_inf and readInteger(lastP1 + 0x1758) ~= 0 then
+      pcall(write_p1_health, lastP1)
+    end
+    if brkState.p1_max then
+      local cur = readSmallInteger(lastP1 + 0x580)
+      local mx = readSmallInteger(lastP1 + 0x582)
+      if cur and mx and mx &gt; 0 and cur &lt; mx then
+        pcall(write_p1_break, lastP1, mx)
+      end
+    end
+  end
+  if brkState.p2_empty and lastP2 &gt; 0 then
+    local cur = readSmallInteger(lastP2 + 0x580)
+    if cur and cur &gt; 0 then
+      pcall(write_p2_break, lastP2)
+    end
   end
 end
 </LuaScript>
